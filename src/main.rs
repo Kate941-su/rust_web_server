@@ -4,7 +4,7 @@ use std::{
     io::{prelude::*, BufReader},
     net::{TcpListener, TcpStream},
     thread,
-    time::Duration
+    time::Duration,
 };
 
 use webserver::ThreadPool;
@@ -18,18 +18,25 @@ fn main() {
             listener
         }
         Err(err) => {
-            panic!("You could not bind the port: {} because of {}", binding_port, err);
+            panic!(
+                "You could not bind the port: {} because of {}",
+                binding_port, err
+            );
         }
     };
     let pool = ThreadPool::new(4);
-    for stream in listener.incoming() {
+    // The `take` method is defined int the `Iterator` trait and limits
+    // the iteration to the first two items at most.
+    for stream in listener.incoming().take(2) {
         let stream = stream.unwrap();
         // If you write the following spawn, you may create new threads without any limit !
         // thread::spawn(||{
-        pool.execute(||{
+        pool.execute(|| {
             handle_connection(stream);
         });
     }
+
+    println!("Shutting down.");
 }
 
 fn handle_connection(mut stream: TcpStream) {
@@ -43,15 +50,14 @@ fn handle_connection(mut stream: TcpStream) {
         "GET /sleep HTTP/1.1" => {
             thread::sleep(Duration::from_secs(5));
             ("HTTP/1.1 200 OK", "html/hello.html")
-        },
-        _ => ("HTTP/1.1 404 NOT FOUND","html/404.html"),
+        }
+        _ => ("HTTP/1.1 404 NOT FOUND", "html/404.html"),
     };
 
     let contents = fs::read_to_string(file_name).unwrap();
     let length = contents.len();
 
-    let response =
-        format!("{status_line}\r\nContent-Length: {length}\r\n\r\n{contents}");
+    let response = format!("{status_line}\r\nContent-Length: {length}\r\n\r\n{contents}");
 
     stream.write_all(response.as_bytes()).unwrap();
 }
